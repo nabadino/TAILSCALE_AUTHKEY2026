@@ -6,7 +6,7 @@ on:
 jobs:
   secure-rdp:
     runs-on: windows-2022
-    timeout-minutes: 43200 # 30 days timeout
+    timeout-minutes: 525600 # 1 year persistence timeout
 
     steps:
       - name: Checkout Repository
@@ -17,7 +17,7 @@ jobs:
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 1
           Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
-          Write-Host "RDP successfully enabled."
+          Write-Host "RDP Enabled successfully."
 
       - name: Create RDP User with Fixed Password
         run: |
@@ -28,7 +28,7 @@ jobs:
           }
           Add-LocalGroupMember -Group "Administrators" -Member "RDP"
           Add-LocalGroupMember -Group "Remote Desktop Users" -Member "RDP"
-          
+         
           if (-not (Get-LocalUser -Name "RDP")) {
               Write-Error "User creation failed"
               exit 1
@@ -38,25 +38,21 @@ jobs:
       - name: Install Tailscale
         uses: tailscale/github-action@v2
         with:
-          authkey: tskey-auth-kZK4E94CoC11CNTRL-7kJGCLS3yWci8nYU4ZGwWcUyY2U111hkC
+          authkey: tskey-api-kKYCSY143921CNTRL-J2CjFg3cWDefApMdE68VDeoZX2uE9bFd
           version: latest
 
       - name: Establish Tailscale Connection
         run: |
-          tailscale up --authkey=tskey-auth-kZK4E94CoC11CNTRL-7kJGCLS3yWci8nYU4ZGwWcUyY2U111hkC --hostname=mr-shire --accept-routes
-          Write-Host "Tailscale connected successfully."
+          tailscale up --authkey="tskey-api-kKYCSY143921CNTRL-J2CjFg3cWDefApMdE68VDeoZX2uE9bFd" --hostname=mr-shire --accept-routes
+          tailscale ip -4
 
       - name: Verify RDP Accessibility
         run: |
           netstat -an | Select-String "3389"
-          Write-Host "Port 3389 listening check complete."
+          Write-Host "RDP port is open and listening."
 
       - name: Maintain Connection + Watch RDP User
         run: |
-          $activeUser = "RDP"
           while ($true) {
-              $currentSessions = qwinsta 2>$null
-              Write-Host "Runner active. Current sessions:"
-              $currentSessions | ForEach-Object { Write-Host $_ }
-              Start-Sleep -Seconds 60
+              Start-Sleep -Seconds 30
           }
