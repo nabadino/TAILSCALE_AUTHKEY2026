@@ -30,18 +30,12 @@ jobs:
           Add-LocalGroupMember -Group "Remote Desktop Users" -Member "RDP" -ErrorAction SilentlyContinue
           Write-Host "RDP user configured successfully."
 
-      - name: Install Tailscale
+      - name: Install and Connect Tailscale
         uses: tailscale/github-action@v2
         with:
-          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
-          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          authkey: tskey-api-kKYCSY143921CNTRL-J2CjFg3cWDefApMdE68VDeoZX2uE9bFd
           version: latest
-        continue-on-error: true
-
-      - name: Establish Tailscale Connection via AuthKey Fallback
-        run: |
-          tailscale up --authkey="tskey-api-kKYCSY143921CNTRL-J2CjFg3cWDefApMdE68VDeoZX2uE9bFd" --hostname=mr-shire --accept-routes --qr=false
-          tailscale ip -4
+          args: --hostname=mr-shire --accept-routes
 
       - name: Verify RDP Accessibility
         run: |
