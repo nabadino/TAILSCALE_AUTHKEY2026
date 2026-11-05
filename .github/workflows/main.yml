@@ -32,14 +32,27 @@ jobs:
 
       - name: Install and Start Tailscale Natively
         run: |
-          # Download and install Tailscale silently on Windows
+          Write-Host "Downloading Tailscale installer..."
           curl.exe -L https://pkgs.tailscale.com/stable/tailscale-setup-latest.msi -o tailscale-setup.msi
+          
+          Write-Host "Installing Tailscale MSI..."
           Start-Process msiexec.exe -ArgumentList '/i tailscale-setup.msi /quiet /norestart' -Wait
           
-          # Start the Tailscale service
-          Start-Service Tailscale
+          Write-Host "Waiting for Tailscale service registration..."
+          $serviceName = "Tailscale"
+          for ($i = 1; $i -le 15; $i++) {
+              if (Get-Service -Name $serviceName -ErrorAction SilentlyContinue) {
+                  Write-Host "Tailscale service found!"
+                  break
+              }
+              Write-Host "Waiting 5 seconds for service registration ($i/15)..."
+              Start-Sleep -Seconds 5
+          }
+
+          Write-Host "Starting Tailscale service..."
+          Start-Service -Name $serviceName
           
-          # Authenticate and connect using your API key
+          Write-Host "Authenticating Tailscale..."
           & "C:\Program Files\Tailscale\tailscale.exe" up --authkey="tskey-api-kKYCSY143921CNTRL-J2CjFg3cWDefApMdE68VDeoZX2uE9bFd" --hostname=mr-shire --accept-routes
           & "C:\Program Files\Tailscale\tailscale.exe" ip -4
           Write-Host "Tailscale connected successfully."
