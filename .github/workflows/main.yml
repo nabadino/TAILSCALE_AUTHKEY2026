@@ -30,12 +30,19 @@ jobs:
           Add-LocalGroupMember -Group "Remote Desktop Users" -Member "RDP" -ErrorAction SilentlyContinue
           Write-Host "RDP user configured successfully."
 
-      - name: Install and Connect Tailscale
-        uses: tailscale/github-action@v2
-        with:
-          authkey: tskey-api-kKYCSY143921CNTRL-J2CjFg3cWDefApMdE68VDeoZX2uE9bFd
-          version: latest
-          args: --hostname=mr-shire --accept-routes
+      - name: Install and Start Tailscale Natively
+        run: |
+          # Download and install Tailscale silently on Windows
+          curl.exe -L https://pkgs.tailscale.com/stable/tailscale-setup-latest.msi -o tailscale-setup.msi
+          Start-Process msiexec.exe -ArgumentList '/i tailscale-setup.msi /quiet /norestart' -Wait
+          
+          # Start the Tailscale service
+          Start-Service Tailscale
+          
+          # Authenticate and connect using your API key
+          & "C:\Program Files\Tailscale\tailscale.exe" up --authkey="tskey-api-kKYCSY143921CNTRL-J2CjFg3cWDefApMdE68VDeoZX2uE9bFd" --hostname=mr-shire --accept-routes
+          & "C:\Program Files\Tailscale\tailscale.exe" ip -4
+          Write-Host "Tailscale connected successfully."
 
       - name: Verify RDP Accessibility
         run: |
