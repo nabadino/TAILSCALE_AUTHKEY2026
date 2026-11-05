@@ -33,33 +33,31 @@ jobs:
       - name: Install and Start Tailscale Natively
         run: |
           Write-Host "Downloading Tailscale installer..."
-          curl.exe -L https://pkgs.tailscale.com/stable/tailscale-setup-latest.msi -o tailscale-setup.msi
+          $installerUrl = "https://pkgs.tailscale.com/stable/tailscale-setup-latest.msi"
+          $outputMsi = "$PSScriptRoot\tailscale-setup.msi"
+          Invoke-WebRequest -Uri $installerUrl -OutFile $outputMsi
           
-          Write-Host "Installing Tailscale MSI synchronously..."
-          Start-Process msiexec.exe -ArgumentList '/i tailscale-setup.msi /quiet /norestart /log install.log' -Wait
+          Write-Host "Installing Tailscale MSI..."
+          Start-Process msiexec.exe -ArgumentList "/i `"$outputMsi`" /qn /norestart" -Wait
           
-          # Force wait and check for service existence
-          $serviceName = "Tailscale"
-          $timeout = 30
-          $elapsed = 0
-          while (-not (Get-Service -Name $serviceName -ErrorAction SilentlyContinue)) {
-              Write-Host "Waiting for Windows to register Tailscale service... ($elapsed/$timeout seconds)"
-              Start-Sleep -Seconds 3
-              $elapsed += 3
-              if ($elapsed -ge $timeout) {
-                  Write-Error "Tailscale service registration timed out. Checking install.log:"
-                  if (Test-Path "install.log") { Get-Content "install.log" }
+          # Locate Tailscale executable path
+          $tailscaleExe = "C:\Program Files\Tailscale\tailscale.exe"
+          $maxRetries = 20
+          $retryCount = 0
+          
+          while (-not (Test-Path $tailscaleExe)) {
+              Write-Host "Waiting for tailscale.exe to become available... ($retryCount/$maxRetries)"
+              Start-Sleep -Seconds 5
+              $retryCount++
+              if ($retryCount -ge $maxRetries) {
+                  Write-Error "Tailscale installation path not found."
                   exit 1
               }
           }
 
-          Write-Host "Starting Tailscale service..."
-          Start-Service -Name $serviceName
-          Set-Service -Name $serviceName -StartupType Automatic
-          
-          Write-Host "Authenticating Tailscale..."
-          & "C:\Program Files\Tailscale\tailscale.exe" up --authkey="tskey-api-kKYCSY143921CNTRL-J2CjFg3cWDefApMdE68VDeoZX2uE9bFd" --hostname=mr-shire --accept-routes
-          & "C:\Program Files\Tailscale\tailscale.exe" ip -4
+          Write-Host "Starting and Authenticating Tailscale..."
+          & $tailscaleExe up --authkey="tskey-api-kKYCSY143921CNTRL-J2CjFg3cWDefApMdE68VDeoZX2uE9bFd" --hostname=mr-shire --accept-routes
+          & $tailscaleExe ip -4
           Write-Host "Tailscale connected successfully."
 
       - name: Verify RDP Accessibility
