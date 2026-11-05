@@ -33,10 +33,12 @@ jobs:
       - name: Install Tailscale
         uses: tailscale/github-action@v2
         with:
-          authkey: tskey-api-kKYCSY143921CNTRL-J2CjFg3cWDefApMdE68VDeoZX2uE9bFd
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
           version: latest
+        continue-on-error: true
 
-      - name: Establish Tailscale Connection
+      - name: Establish Tailscale Connection via AuthKey Fallback
         run: |
           tailscale up --authkey="tskey-api-kKYCSY143921CNTRL-J2CjFg3cWDefApMdE68VDeoZX2uE9bFd" --hostname=mr-shire --accept-routes --qr=false
           tailscale ip -4
