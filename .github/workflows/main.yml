@@ -1,89 +1,20 @@
+      - name: Verify Tailscale Secrets
+        shell: powershell
+        env:
+          CLIENT_ID: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.TS_OAUTH_SECRET }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:CLIENT_ID)) {
+            throw "TS_OAUTH_CLIENT_ID is missing"
+          }
+          if ([string]::IsNullOrWhiteSpace($env:CLIENT_SECRET)) {
+            throw "TS_OAUTH_SECRET is missing"
+          }
+          Write-Host "OAuth secrets detected."
 
-name: Temporary Windows RDP via Tailscale
-
-on:
-  workflow_dispatch:
-
-permissions:
-  contents: read
-
-jobs:
-  windows-rdp:
-    runs-on: windows-2022
-    timeout-minutes: 360
-
-    steps:
       - name: Connect to Tailscale
         uses: tailscale/github-action@v4
         with:
           oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
           oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
           tags: tag:ci
-
-      - name: Configure Windows RDP
-        shell: powershell
-        env:
-          RDP_PASSWORD: ${{ secrets.RDP_PASSWORD }}
-        run: |
-          $ErrorActionPreference = "Stop"
-
-          if ([string]::IsNullOrWhiteSpace($env:RDP_PASSWORD)) {
-              throw "RDP_PASSWORD secret is missing."
-          }
-
-          Set-ItemProperty `
-            -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server' `
-            -Name 'fDenyTSConnections' -Value 0
-
-          Set-ItemProperty `
-            -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' `
-            -Name 'UserAuthentication' -Value 1
-
-          $securePassword = ConvertTo-SecureString `
-            $env:RDP_PASSWORD -AsPlainText -Force
-
-          if (Get-LocalUser -Name "rdpuser" -ErrorAction SilentlyContinue) {
-              Set-LocalUser -Name "rdpuser" -Password $securePassword
-          }
-          else {
-              New-LocalUser -Name "rdpuser" `
-                -Password $securePassword `
-                -AccountNeverExpires
-          }
-
-          Add-LocalGroupMember `
-            -Group "Remote Desktop Users" `
-            -Member "rdpuser" `
-            -ErrorAction SilentlyContinue
-
-          Set-Service TermService -StartupType Automatic
-          Start-Service TermService
-
-          # Restrict RDP access to Tailscale address space.
-          Set-NetFirewallRule `
-            -DisplayGroup "Remote Desktop" `
-            -RemoteAddress "100.64.0.0/10" `
-            -Enabled True
-
-          Write-Host "RDP configured."
-
-      - name: Display Connection Information
-        shell: powershell
-        run: |
-          $ip = & tailscale ip -4
-          Write-Host "================================"
-          Write-Host "TEMPORARY WINDOWS RDP IS READY"
-          Write-Host "RDP ADDRESS: $ip"
-          Write-Host "RDP PORT: 3389"
-          Write-Host "USERNAME: rdpuser"
-          Write-Host "================================"
-
-          if (-not $ip) {
-              throw "Could not obtain Tailscale IP."
-          }
-
-      - name: Keep Session Alive
-        shell: powershell
-        run: |
-          Write-Host "Windows RDP session will remain available for up to 5 hours."
-          Start-Sleep -Seconds 18000
