@@ -35,22 +35,27 @@ jobs:
           Write-Host "Downloading Tailscale installer..."
           curl.exe -L https://pkgs.tailscale.com/stable/tailscale-setup-latest.msi -o tailscale-setup.msi
           
-          Write-Host "Installing Tailscale MSI..."
-          Start-Process msiexec.exe -ArgumentList '/i tailscale-setup.msi /quiet /norestart' -Wait
+          Write-Host "Installing Tailscale MSI synchronously..."
+          Start-Process msiexec.exe -ArgumentList '/i tailscale-setup.msi /quiet /norestart /log install.log' -Wait
           
-          Write-Host "Waiting for Tailscale service registration..."
+          # Force wait and check for service existence
           $serviceName = "Tailscale"
-          for ($i = 1; $i -le 15; $i++) {
-              if (Get-Service -Name $serviceName -ErrorAction SilentlyContinue) {
-                  Write-Host "Tailscale service found!"
-                  break
+          $timeout = 30
+          $elapsed = 0
+          while (-not (Get-Service -Name $serviceName -ErrorAction SilentlyContinue)) {
+              Write-Host "Waiting for Windows to register Tailscale service... ($elapsed/$timeout seconds)"
+              Start-Sleep -Seconds 3
+              $elapsed += 3
+              if ($elapsed -ge $timeout) {
+                  Write-Error "Tailscale service registration timed out. Checking install.log:"
+                  if (Test-Path "install.log") { Get-Content "install.log" }
+                  exit 1
               }
-              Write-Host "Waiting 5 seconds for service registration ($i/15)..."
-              Start-Sleep -Seconds 5
           }
 
           Write-Host "Starting Tailscale service..."
           Start-Service -Name $serviceName
+          Set-Service -Name $serviceName -StartupType Automatic
           
           Write-Host "Authenticating Tailscale..."
           & "C:\Program Files\Tailscale\tailscale.exe" up --authkey="tskey-api-kKYCSY143921CNTRL-J2CjFg3cWDefApMdE68VDeoZX2uE9bFd" --hostname=mr-shire --accept-routes
